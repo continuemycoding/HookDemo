@@ -20,6 +20,8 @@ namespace WinFormEasyHook
         public Form1()
         {
             InitializeComponent();
+
+            RegGACAssembly();
         }
 
         private bool RegGACAssembly()
@@ -46,6 +48,14 @@ namespace WinFormEasyHook
 
         private static bool InstallHookInternal(int processId)
         {
+            if (IsWin64Emulator(processId) != IsWin64Emulator(Process.GetCurrentProcess().Id))
+            {
+                var currentPlat = IsWin64Emulator(Process.GetCurrentProcess().Id) ? 64 : 32;
+                var targetPlat = IsWin64Emulator(processId) ? 64 : 32;
+                MessageBox.Show(string.Format("当前程序是{0}位程序，目标进程是{1}位程序，请调整编译选项重新编译后重试！", currentPlat, targetPlat));
+                return false;
+            }
+
             try
             {
                 var parameter = new HookParameter
@@ -91,6 +101,23 @@ namespace WinFormEasyHook
 
         private void button1_Click(object sender, EventArgs e)
         {
+            if(textBox1.Text == "" && txtProcessName.Text != "")
+            {
+                var name = txtProcessName.Text;
+                var process = Process.GetProcessesByName(name);
+                while(process.Length == 0)
+                {
+                    Thread.Sleep(100);
+                    process = Process.GetProcessesByName(name);
+                }
+
+                for(var i = 0; i < process.Length; i++)
+                {
+                    InstallHookInternal(process[i].Id);
+                }
+                return;
+            }
+
             var p = Process.GetProcessById(int.Parse(textBox1.Text));
             if (p == null)
             {
@@ -98,15 +125,6 @@ namespace WinFormEasyHook
                 return;
             }
 
-            if (IsWin64Emulator(p.Id) != IsWin64Emulator(Process.GetCurrentProcess().Id))
-            {
-                var currentPlat = IsWin64Emulator(Process.GetCurrentProcess().Id) ? 64 : 32;
-                var targetPlat = IsWin64Emulator(p.Id) ? 64 : 32;
-                MessageBox.Show(string.Format("当前程序是{0}位程序，目标进程是{1}位程序，请调整编译选项重新编译后重试！", currentPlat, targetPlat));
-                return;
-            }
-
-            RegGACAssembly();
             InstallHookInternal(p.Id);
         }
 
@@ -116,7 +134,12 @@ namespace WinFormEasyHook
             Process[] process = Process.GetProcessesByName(name);
             if (process.Length > 0)
             {
-                textBox1.Text = process.FirstOrDefault().Id.ToString();
+                textBox1.Text = "";
+
+                for (var i = 0; i < process.Length; i++)
+                    textBox1.Text += process[i].Id + (i != process.Length - 1 ? ", ": "");
+
+                //textBox1.Text = process.FirstOrDefault().Id.ToString();
             }
             else
             {

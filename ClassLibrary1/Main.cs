@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Text;
 using System.Runtime.InteropServices;
 using EasyHook;
 using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace ClassLibrary1
 {
@@ -17,13 +17,16 @@ namespace ClassLibrary1
 
     public class Main : IEntryPoint
     {
+        private static List<string> logs = new List<string>();
+
         public Main(
             RemoteHooking.IContext context,
             string channelName
             , HookParameter parameter
             )
         {
-            MessageBox.Show(parameter.Msg, "Hooked");
+            //MessageBox.Show(parameter.Msg, "Hooked");
+            Debug.WriteLine(parameter.Msg);
         }
 
         public void Run(
@@ -93,6 +96,7 @@ namespace ClassLibrary1
 
         static IntPtr CreateFile_Hooked(string fileName, uint desiredAccess, uint shareMode, IntPtr securityAttributes, uint creationDisposition, uint flagsAndAttributes, IntPtr hTemplateFile)
         {
+            logs.Add("CreateFile_Hooked " + fileName);
             Debug.WriteLine("CreateFile_Hooked " + fileName);
             return CreateFile(fileName, desiredAccess, shareMode, securityAttributes, creationDisposition, flagsAndAttributes, hTemplateFile);
         }
@@ -116,6 +120,7 @@ namespace ClassLibrary1
 
         static bool DeleteFile_Hooked(string fileName)
         {
+            logs.Add("CreateFile_Hooked " + fileName);
             Debug.WriteLine("DeleteFile_Hooked " + fileName);
             return DeleteFile(fileName);
         }
