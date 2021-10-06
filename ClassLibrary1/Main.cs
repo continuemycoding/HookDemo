@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using EasyHook;
 using System.Threading;
 using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace ClassLibrary1
 {
@@ -16,9 +17,6 @@ namespace ClassLibrary1
 
     public class Main : IEntryPoint
     {
-        public LocalHook MessageBoxWHook = null;
-        public LocalHook MessageBoxAHook = null;
-
         public Main(
             RemoteHooking.IContext context,
             string channelName
@@ -36,17 +34,35 @@ namespace ClassLibrary1
         {
             try
             {
-                MessageBoxWHook = LocalHook.Create(
-                    LocalHook.GetProcAddress("user32.dll", "MessageBoxW"),
-                    new DMessageBoxW(MessageBoxW_Hooked),
-                    this);
-                MessageBoxWHook.ThreadACL.SetExclusiveACL(new int[1]);
+                var createFileHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("kernel32.dll", "CreateFileW"),
+                    new DCreateFile(CreateFile_Hooked),
+                    null);
+                createFileHook.ThreadACL.SetExclusiveACL(new int[1]);
 
-                MessageBoxAHook = LocalHook.Create(
-                    LocalHook.GetProcAddress("user32.dll", "MessageBoxA"),
-                    new DMessageBoxW(MessageBoxA_Hooked),
-                    this);
-                MessageBoxAHook.ThreadACL.SetExclusiveACL(new int[1]);     
+                var reOpenFileHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("kernel32.dll", "ReOpenFile"),
+                    new DReOpenFile(ReOpenFile_Hooked),
+                    null);
+                reOpenFileHook.ThreadACL.SetExclusiveACL(new int[1]);
+
+                var deleteFileHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("kernel32.dll", "DeleteFileW"),
+                    new DDeleteFile(DeleteFile_Hooked),
+                    null);
+                deleteFileHook.ThreadACL.SetExclusiveACL(new int[1]);
+
+                var readFileHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("kernel32.dll", "ReadFile"),
+                    new DReadFile(ReadFile_Hooked),
+                    null);
+                readFileHook.ThreadACL.SetExclusiveACL(new int[1]);
+
+                var writeFileHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("kernel32.dll", "WriteFile"),
+                    new DWriteFile(WriteFile_Hooked),
+                    null);
+                writeFileHook.ThreadACL.SetExclusiveACL(new int[1]);
             }
             catch (Exception ex)
             {
@@ -67,32 +83,63 @@ namespace ClassLibrary1
             }
         }
 
-        #region MessageBoxW
+        #region 文件相关
 
-        [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode)]
-        public static extern IntPtr MessageBoxW(int hWnd, string text, string caption, uint type);
+        [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode)]
+        public static extern IntPtr CreateFile(string fileName, uint desiredAccess, uint shareMode, IntPtr securityAttributes, uint creationDisposition, uint flagsAndAttributes, IntPtr hTemplateFile);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
-        delegate IntPtr DMessageBoxW(int hWnd, string text, string caption, uint type);
+        delegate IntPtr DCreateFile(string fileName, uint desiredAccess, uint shareMode, IntPtr securityAttributes, uint creationDisposition, uint flagsAndAttributes, IntPtr hTemplateFile);
 
-        static IntPtr MessageBoxW_Hooked(int hWnd, string text, string caption, uint type)
+        static IntPtr CreateFile_Hooked(string fileName, uint desiredAccess, uint shareMode, IntPtr securityAttributes, uint creationDisposition, uint flagsAndAttributes, IntPtr hTemplateFile)
         {
-            return MessageBoxW(hWnd, "已注入-" + text, "已注入-" + caption, type);
+            Debug.WriteLine("CreateFile_Hooked " + fileName);
+            return CreateFile(fileName, desiredAccess, shareMode, securityAttributes, creationDisposition, flagsAndAttributes, hTemplateFile);
         }
 
-        #endregion
-        
-        #region MessageBoxA
+        [DllImport("kernel32.dll", EntryPoint = "ReOpenFile")]
+        public static extern IntPtr ReOpenFile(IntPtr hOriginalFile, uint desiredAccess, uint shareMode, uint flagsAndAttributes);
 
-        [DllImport("user32.dll", EntryPoint = "MessageBoxA", CharSet = CharSet.Ansi)]
-        public static extern IntPtr MessageBoxA(int hWnd, string text, string caption, uint type);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        delegate IntPtr DReOpenFile(IntPtr hOriginalFile, uint desiredAccess, uint shareMode, uint flagsAndAttributes);
 
-        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Ansi)]
-        delegate IntPtr DMessageBoxA(int hWnd, string text, string caption, uint type);
-
-        static IntPtr MessageBoxA_Hooked(int hWnd, string text, string caption, uint type)
+        static IntPtr ReOpenFile_Hooked(IntPtr hOriginalFile, uint desiredAccess, uint shareMode, uint flagsAndAttributes)
         {
-            return MessageBoxA(hWnd, "已注入-" + text, "已注入-" + caption, type);
+            return ReOpenFile(hOriginalFile, desiredAccess, shareMode, flagsAndAttributes);
+        }
+
+        [DllImport("kernel32.dll", EntryPoint = "DeleteFileW", CharSet = CharSet.Unicode)]
+        public static extern bool DeleteFile(string fileName);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        delegate bool DDeleteFile(string fileName);
+
+        static bool DeleteFile_Hooked(string fileName)
+        {
+            Debug.WriteLine("DeleteFile_Hooked " + fileName);
+            return DeleteFile(fileName);
+        }
+
+        [DllImport("kernel32.dll", EntryPoint = "ReadFile")]
+        public static extern bool ReadFile(IntPtr hFile, IntPtr buffer, uint numberOfBytesToRead, IntPtr numberOfBytesRead, IntPtr overlapped);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        delegate bool DReadFile(IntPtr hFile, IntPtr buffer, uint numberOfBytesToRead, IntPtr numberOfBytesRead, IntPtr overlapped);
+
+        static bool ReadFile_Hooked(IntPtr hFile, IntPtr buffer, uint numberOfBytesToRead, IntPtr numberOfBytesRead, IntPtr overlapped)
+        {
+            return ReadFile(hFile, buffer, numberOfBytesToRead, numberOfBytesRead, overlapped);
+        }
+
+        [DllImport("kernel32.dll", EntryPoint = "WriteFile")]
+        public static extern bool WriteFile(IntPtr hFile, IntPtr buffer, uint numberOfBytesToWrite, IntPtr numberOfBytesWritten, IntPtr overlapped);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        delegate bool DWriteFile(IntPtr hFile, IntPtr buffer, uint numberOfBytesToWrite, IntPtr numberOfBytesWritten, IntPtr overlapped);
+
+        static bool WriteFile_Hooked(IntPtr hFile, IntPtr buffer, uint numberOfBytesToWrite, IntPtr numberOfBytesWritten, IntPtr overlapped)
+        {
+            return WriteFile(hFile, buffer, numberOfBytesToWrite, numberOfBytesWritten, overlapped);
         }
 
         #endregion
