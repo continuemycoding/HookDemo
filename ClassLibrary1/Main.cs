@@ -66,6 +66,31 @@ namespace ClassLibrary1
                     new DWriteFile(WriteFile_Hooked),
                     null);
                 writeFileHook.ThreadACL.SetExclusiveACL(new int[1]);
+
+
+                var regCreateKeyExHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("advapi32.dll", "RegCreateKeyExW"),
+                    new DRegCreateKeyEx(RegCreateKeyEx_Hooked),
+                    null);
+                regCreateKeyExHook.ThreadACL.SetExclusiveACL(new int[1]);
+
+                var regOpenKeyExHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("advapi32.dll", "RegOpenKeyExW"),
+                    new DRegOpenKeyEx(RegOpenKeyEx_Hooked),
+                    null);
+                regOpenKeyExHook.ThreadACL.SetExclusiveACL(new int[1]);
+
+                var regSetValueExHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("advapi32.dll", "RegSetValueExW"),
+                    new DRegSetValueEx(RegSetValueEx_Hooked),
+                    null);
+                regSetValueExHook.ThreadACL.SetExclusiveACL(new int[1]);
+
+                var regGetValueHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("advapi32.dll", "RegGetValueW"),
+                    new DRegGetValue(RegGetValue_Hooked),
+                    null);
+                regGetValueHook.ThreadACL.SetExclusiveACL(new int[1]);
             }
             catch (Exception ex)
             {
@@ -96,7 +121,7 @@ namespace ClassLibrary1
 
         static IntPtr CreateFile_Hooked(string fileName, uint desiredAccess, uint shareMode, IntPtr securityAttributes, uint creationDisposition, uint flagsAndAttributes, IntPtr hTemplateFile)
         {
-            logs.Add("CreateFile_Hooked " + fileName);
+            //logs.Add("CreateFile_Hooked " + fileName);
             Debug.WriteLine("CreateFile_Hooked " + fileName);
             return CreateFile(fileName, desiredAccess, shareMode, securityAttributes, creationDisposition, flagsAndAttributes, hTemplateFile);
         }
@@ -120,7 +145,7 @@ namespace ClassLibrary1
 
         static bool DeleteFile_Hooked(string fileName)
         {
-            logs.Add("CreateFile_Hooked " + fileName);
+            //logs.Add("CreateFile_Hooked " + fileName);
             Debug.WriteLine("DeleteFile_Hooked " + fileName);
             return DeleteFile(fileName);
         }
@@ -147,6 +172,56 @@ namespace ClassLibrary1
             return WriteFile(hFile, buffer, numberOfBytesToWrite, numberOfBytesWritten, overlapped);
         }
 
+        #endregion
+
+        #region 注册表
+        [DllImport("advapi32.dll", EntryPoint = "RegCreateKeyExW", CharSet = CharSet.Unicode)]
+        public static extern long RegCreateKeyEx(IntPtr hKey, string subKey, uint reserved, IntPtr @class, uint options, uint desired, IntPtr securityAttributes, IntPtr result, IntPtr disposition);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        delegate long DRegCreateKeyEx(IntPtr hKey, string subKey, uint reserved, IntPtr @class, uint options, uint desired, IntPtr securityAttributes, IntPtr result, IntPtr disposition);
+
+        static long RegCreateKeyEx_Hooked(IntPtr hKey, string subKey, uint reserved, IntPtr @class, uint options, uint desired, IntPtr securityAttributes, IntPtr result, IntPtr disposition)
+        {
+            logs.Add("RegCreateKeyEx_Hooked " + subKey);
+            return RegCreateKeyEx(hKey, subKey, reserved, @class, options, desired, securityAttributes, result, disposition);
+        }
+
+        [DllImport("advapi32.dll", EntryPoint = "RegOpenKeyExW", CharSet = CharSet.Unicode)]
+        public static extern long RegOpenKeyEx(IntPtr hKey, string subKey, uint options, uint desired, IntPtr result);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        delegate long DRegOpenKeyEx(IntPtr hKey, string subKey, uint options, uint desired, IntPtr result);
+
+        static long RegOpenKeyEx_Hooked(IntPtr hKey, string subKey, uint options, uint desired, IntPtr result)
+        {
+            logs.Add("RegOpenKeyEx_Hooked " + subKey);
+            return RegOpenKeyEx(hKey, subKey, options, desired, result);
+        }
+
+        [DllImport("advapi32.dll", EntryPoint = "RegSetValueExW", CharSet = CharSet.Unicode)]
+        public static extern long RegSetValueEx(IntPtr hKey, string valueName, uint reserved, uint type, IntPtr byteData, uint data);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        delegate long DRegSetValueEx(IntPtr hKey, string valueName, uint reserved, uint type, IntPtr byteData, uint data);
+
+        static long RegSetValueEx_Hooked(IntPtr hKey, string valueName, uint reserved, uint type, IntPtr byteData, uint data)
+        {
+            logs.Add("RegSetValueEx_Hooked " + valueName);
+            return RegSetValueEx(hKey, valueName, reserved, type, byteData, data);
+        }
+
+        [DllImport("advapi32.dll", EntryPoint = "RegGetValueW", CharSet = CharSet.Unicode)]
+        public static extern long RegGetValue(IntPtr hKey, string subKey, string value, uint flags, IntPtr type, IntPtr voidData, IntPtr data);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        delegate long DRegGetValue(IntPtr hKey, string subKey, string value, uint flags, IntPtr type, IntPtr voidData, IntPtr data);
+
+        static long RegGetValue_Hooked(IntPtr hKey, string subKey, string value, uint flags, IntPtr type, IntPtr voidData, IntPtr data)
+        {
+            logs.Add("RegGetValue_Hooked " + subKey + " " + value);
+            return RegGetValue(hKey, subKey, value, flags, type, voidData, data);
+        }
         #endregion
     }
 }
